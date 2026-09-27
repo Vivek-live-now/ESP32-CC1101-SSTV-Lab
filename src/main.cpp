@@ -37,6 +37,8 @@ void printMenu() {
     Serial.println(" [7] Transmit Robot 36 via FS1000A (433.92 MHz ASK/OOK)");
     Serial.println(" [8] Radio Status & RSSI Diagnostic");
     Serial.println(" [0] Stop / Set Radio to IDLE");
+    Serial.println("--------------------------------------------------------");
+    Serial.println(" [BOOT Button] Click: Start/Stop ISS RX | Hold: Transmit SSTV");
     Serial.println("========================================================");
     Serial.print("Select command > ");
 }
@@ -44,6 +46,8 @@ void printMenu() {
 void setup() {
     Serial.begin(115200);
     delay(1000);
+
+    pinMode(PIN_BOOT_BUTTON, INPUT_PULLUP);
 
     Serial.println("\n[INIT] Initializing SPI and CC1101...");
 
@@ -175,7 +179,43 @@ void handleCommand(char cmd) {
     }
 }
 
+void checkBootButton() {
+    static uint32_t pressStartTime = 0;
+    static bool buttonWasPressed = false;
+
+    bool isPressed = (digitalRead(PIN_BOOT_BUTTON) == LOW);
+
+    if (isPressed && !buttonWasPressed) {
+        // Button pressed down
+        buttonWasPressed = true;
+        pressStartTime = millis();
+    } else if (!isPressed && buttonWasPressed) {
+        // Button released
+        buttonWasPressed = false;
+        uint32_t duration = millis() - pressStartTime;
+
+        if (duration >= 50 && duration < 1500) {
+            // Short click: Toggle RX Mode
+            if (currentMode == MODE_IDLE) {
+                Serial.println("\n[BOOT BUTTON] Click -> Starting ISS SSTV RX Mode & Auto Doppler Pass!");
+                handleCommand('1');
+                handleCommand('4');
+            } else {
+                Serial.println("\n[BOOT BUTTON] Click -> Halting RX Mode (Return to IDLE)");
+                handleCommand('0');
+            }
+        } else if (duration >= 1500) {
+            // Long hold (> 1.5s): Transmit Robot 36 Test Pattern
+            Serial.println("\n[BOOT BUTTON] Hold -> Transmitting Robot 36 Test Pattern!");
+            handleCommand('5');
+        }
+    }
+}
+
 void loop() {
+    // Check hardware BOOT button
+    checkBootButton();
+
     // Process incoming Serial commands
     if (Serial.available()) {
         char c = (char)Serial.read();

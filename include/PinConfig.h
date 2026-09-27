@@ -27,3 +27,7 @@
     #define PIN_AUDIO_DAC      25      // Built-in hardware DAC1 (Channel 1)
     #define HAS_HARDWARE_DAC   true
 #endif
+
+// Onboard BOOT button (Active LOW, GPIO 0 on both WROOM-32 and ESP32-S3)
+#define PIN_BOOT_BUTTON        0
+

@@ -119,8 +119,22 @@ Connect to the ESP32 via Serial at **115200 baud**:
  [7] Transmit Robot 36 via FS1000A (433.92 MHz ASK/OOK)
  [8] Radio Status & RSSI Diagnostic
  [0] Stop / Set Radio to IDLE
+--------------------------------------------------------
+ [BOOT Button] Click: Start/Stop ISS RX | Hold: Transmit SSTV
 ========================================================
 ```
+
+---
+
+## Standalone Portable Operation (Using the BOOT Button)
+
+You do **not** need a computer or serial monitor in the field! The onboard **BOOT button** (`GPIO 0`) works as a physical controller:
+
+* **Short Click (< 1.5 seconds):** 
+  * If IDLE: Instantly starts **ISS SSTV RX Mode** AND triggers the **10-minute automated Doppler tracking curve**!
+  * If RX is running: Stops the receiver and returns to low-power IDLE.
+* **Long Hold (> 1.5 seconds):** 
+  * Instantly transmits the **Robot 36 Test Pattern** over the air so you can test decoding with your phone right away.
 
 ---
 
