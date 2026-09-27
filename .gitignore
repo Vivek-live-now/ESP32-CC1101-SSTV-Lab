@@ -1,0 +1,9 @@
+.pio
+.vscode
+.idea
+*.pyc
+*.bin
+*.elf
+*.hex
+*.o
+*.a
