@@ -170,4 +170,6 @@ The ESP32 broadcasts its own wireless ground station network:
 ---
 
 ## License
-MIT License. Created by [Vivek-live-now](https://github.com/Vivek-live-now).
+
+This project is open-source software licensed under the **[MIT License](LICENSE)**.  
+Copyright (c) 2026 [Vivek-live-now](https://github.com/Vivek-live-now).
