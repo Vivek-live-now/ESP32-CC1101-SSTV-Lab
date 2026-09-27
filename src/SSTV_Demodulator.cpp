@@ -41,10 +41,14 @@ void SSTV_Demodulator::begin(uint8_t inPin, uint8_t outPin) {
     // Enable built-in DAC on GPIO 25 (DAC channel 1)
     dacWrite(outputPin, 128); // Midpoint DC bias
 #else
-    // Configure LEDC PWM channel 0 on ESP32-S3
+    // Configure LEDC PWM channel on ESP32-S3
+    #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+    ledcAttach(outputPin, 1000, 8);
+    #else
     ledcSetup(0, 1000, 8);
     ledcAttachPin(outputPin, 0);
     ledcWrite(0, 0);
+    #endif
 #endif
 
     lastEdgeTimeMicros = micros();
@@ -57,7 +61,11 @@ void SSTV_Demodulator::stop() {
 #if HAS_HARDWARE_DAC
     dacWrite(outputPin, 0);
 #else
+    #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+    ledcWrite(outputPin, 0);
+    #else
     ledcWrite(0, 0);
+    #endif
 #endif
 }
 
@@ -112,6 +120,10 @@ void SSTV_Demodulator::outputToneSample(float freq) {
     dacWrite(outputPin, dacValue);
 #else
     // Hardware PWM tone generation on ESP32-S3
+    #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+    ledcWriteTone(outputPin, (uint32_t)freq);
+    #else
     ledcWriteTone(0, (uint32_t)freq);
+    #endif
 #endif
 }

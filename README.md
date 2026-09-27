@@ -33,18 +33,32 @@ Designed for experimenting with amateur radio satellite passes—specifically **
 | **MISO / GDO1** | **GPIO 19** | SPI Data Out |
 | **GDO0** | **GPIO 4** | Raw Slicer Edge Capture |
 | **(DAC Output)** | **GPIO 25** | Audio Out $\rightarrow$ $10\text{ k}\Omega$ resistor $\rightarrow$ Phone Mic / Earphone |
+| **FS1000A DATA**  | **GPIO 26** | Optional 433.92 MHz ASK transmitter |
 
-### 2. ESP32-S3 DevKit (Transmitter / DSP)
+### 2. ESP32-S3 DevKit (Transmitter / DSP Engine)
 
-| CC1101 Pin | ESP32-S3 Pin | Notes |
+| CC1101 / Module Pin | ESP32-S3 Pin | Notes |
 | :--- | :--- | :--- |
-| **VCC** | **3.3V** | Power |
+| **VCC** | **3.3V** | Power (3.3V Only) |
 | **GND** | **GND** | Ground |
 | **CSN** | **GPIO 10** | SPI Chip Select |
 | **SCK** | **GPIO 12** | SPI Clock |
 | **MOSI** | **GPIO 11** | SPI Data In |
 | **MISO** | **GPIO 13** | SPI Data Out |
 | **GDO0** | **GPIO 14** | Asynchronous Modulation Output |
+| **Audio Output** | **GPIO 1** | High-speed LEDC PWM audio (RC filter recommended) |
+| **FS1000A DATA** | **GPIO 16** | Optional 433.92 MHz ASK transmitter |
+
+#### ESP32-S3 Audio Output Circuit (RC Low-Pass Filter)
+Because the ESP32-S3 does not have an internal DAC, it generates high-frequency PWM tones on **GPIO 1**. Use this simple filter to smooth the digital pulses into analog audio:
+
+```text
+[ ESP32-S3 GPIO 1 ] ───[ 1kΩ to 10kΩ Resistor ]───┬───> Audio Tip / Mic (Phone / Earphone)
+                                                  │
+                                            [ 100nF Cap ]
+                                                  │
+[ ESP32-S3 GND ]    ──────────────────────────────┴───> Audio Sleeve / Ground
+```
 
 ---
 
@@ -100,9 +114,10 @@ Connect to the ESP32 via Serial at **115200 baud**:
  [2] Step Doppler Frequency UP (+2.5 kHz)
  [3] Step Doppler Frequency DOWN (-2.5 kHz)
  [4] Start 10-Minute Auto-Doppler Satellite Pass
- [5] Transmit Robot 36 Test Pattern (433.92 MHz TX)
+ [5] Transmit Robot 36 via CC1101 (433.92 MHz 2-FSK)
  [6] Transmit SSTV Calibration Tones (1200-2300 Hz)
- [7] Radio Status & RSSI Diagnostic
+ [7] Transmit Robot 36 via FS1000A (433.92 MHz ASK/OOK)
+ [8] Radio Status & RSSI Diagnostic
  [0] Stop / Set Radio to IDLE
 ========================================================
 ```

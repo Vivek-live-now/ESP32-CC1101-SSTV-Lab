@@ -32,9 +32,10 @@ void printMenu() {
     Serial.println(" [2] Step Doppler Frequency UP (+2.5 kHz)");
     Serial.println(" [3] Step Doppler Frequency DOWN (-2.5 kHz)");
     Serial.println(" [4] Start 10-Minute Auto-Doppler Satellite Pass");
-    Serial.println(" [5] Transmit Robot 36 Test Pattern (433.92 MHz TX)");
+    Serial.println(" [5] Transmit Robot 36 via CC1101 (433.92 MHz 2-FSK)");
     Serial.println(" [6] Transmit SSTV Calibration Tones (1200-2300 Hz)");
-    Serial.println(" [7] Radio Status & RSSI Diagnostic");
+    Serial.println(" [7] Transmit Robot 36 via FS1000A (433.92 MHz ASK/OOK)");
+    Serial.println(" [8] Radio Status & RSSI Diagnostic");
     Serial.println(" [0] Stop / Set Radio to IDLE");
     Serial.println("========================================================");
     Serial.print("Select command > ");
@@ -109,9 +110,10 @@ void handleCommand(char cmd) {
             Demodulator.stop();
             Radio.setTxAsyncMode(433.920f, 5.0f, 0); // -10 dBm safe lab power
 
-            Serial.println("[TX] Transmitting Robot 36 Test Pattern (takes ~36 seconds)...");
+            Encoder.setModulationPin(PIN_CC1101_GDO0);
+            Serial.println("[TX] Transmitting Robot 36 Test Pattern via CC1101 (~36 seconds)...");
             Serial.println("     Open Robot36 on your phone to capture!");
-            Encoder.sendRobot36TestPattern("ESP32-LAB");
+            Encoder.sendRobot36TestPattern("ESP32-CC1101");
 
             Serial.println("[TX] Transmission complete! Returning to IDLE.");
             Radio.setIdle();
@@ -124,6 +126,7 @@ void handleCommand(char cmd) {
             Serial.println("\n[TEST] Transmitting SSTV calibration tones (1200 / 1500 / 1900 / 2300 Hz)...");
             Demodulator.stop();
             Radio.setTxAsyncMode(433.920f, 5.0f, 0);
+            Encoder.setModulationPin(PIN_CC1101_GDO0);
             Encoder.sendToneTest();
             Radio.setIdle();
             Serial.println("[TEST] Done!");
@@ -132,6 +135,21 @@ void handleCommand(char cmd) {
         }
 
         case '7': {
+            Serial.printf("\n[TX-FS1000A] Transmitting Robot 36 via FS1000A on GPIO %d (433.92 MHz ASK/OOK)...\n", PIN_FS1000A_DATA);
+            Demodulator.stop();
+            Radio.setIdle();
+
+            Encoder.setModulationPin(PIN_FS1000A_DATA);
+            Serial.println("             Transmitting Robot 36 Pattern (~36 seconds)...");
+            Encoder.sendRobot36TestPattern("ESP32-FS1000A");
+
+            Serial.println("[TX-FS1000A] Transmission complete!");
+            currentMode = MODE_IDLE;
+            printMenu();
+            break;
+        }
+
+        case '8': {
             Serial.println("\n[DIAGNOSTICS]");
             Serial.printf("  PartNum   : 0x%02X\n", Radio.getPartNum());
             Serial.printf("  Version   : 0x%02X\n", Radio.getVersion());

@@ -5,7 +5,11 @@ SSTV_Encoder Encoder;
 SSTV_Encoder::SSTV_Encoder() : modPin(4) {}
 
 void SSTV_Encoder::begin(uint8_t modulationPin) {
-    modPin = modulationPin;
+    setModulationPin(modulationPin);
+}
+
+void SSTV_Encoder::setModulationPin(uint8_t pin) {
+    modPin = pin;
     pinMode(modPin, OUTPUT);
     digitalWrite(modPin, LOW);
 }

@@ -6,6 +6,8 @@ public:
     SSTV_Encoder();
 
     void begin(uint8_t modulationPin);
+    void setModulationPin(uint8_t pin);
+    uint8_t getModulationPin() const { return modPin; }
     
     // Low-level tone generation
     void playTone(float freqHz, uint32_t durationMs);
