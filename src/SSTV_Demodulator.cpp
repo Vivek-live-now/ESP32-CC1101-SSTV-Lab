@@ -109,7 +109,6 @@ void SSTV_Demodulator::outputToneSample(float freq) {
         return;
     }
 
-#if HAS_HARDWARE_DAC
     // Phase accumulation for pure reconstructed sine wave
     float phaseIncrement = (2.0f * 3.14159265f * freq * (float)dt) / 1000000.0f;
     phase += phaseIncrement;
