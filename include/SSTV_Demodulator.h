@@ -15,6 +15,9 @@ public:
     uint32_t getValidToneCount() const { return validToneCount; }
     bool isReceivingTone() const { return toneActive; }
 
+    typedef void (*AudioSampleCallback)(uint8_t sample);
+    void setSampleCallback(AudioSampleCallback cb) { sampleCallback = cb; }
+
     // Interrupt handler (internal)
     static void IRAM_ATTR handleEdgeISR();
 
@@ -35,6 +38,7 @@ private:
     // DAC phase accumulator for smooth sine output
     float phase;
     uint32_t lastDacUpdateMicros;
+    AudioSampleCallback sampleCallback;
 
     void outputToneSample(float freq);
 };

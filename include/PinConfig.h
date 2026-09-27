@@ -2,13 +2,20 @@
 #include <Arduino.h>
 
 #if defined(BOARD_ESP32_S3)
-    // ESP32-S3 DevKit Pin Mapping
-    #define PIN_CC1101_CSN     10
-    #define PIN_CC1101_SCK     12
-    #define PIN_CC1101_MOSI    11
-    #define PIN_CC1101_MISO    13
-    #define PIN_CC1101_GDO0    14
-    #define PIN_CC1101_GDO2    15
+    // ESP32-S3 DevKit Pin Mapping (Optimized for on-board microSD slot on GPIO 10-13)
+    #define PIN_CC1101_CSN     7
+    #define PIN_CC1101_SCK     4
+    #define PIN_CC1101_MOSI    5
+    #define PIN_CC1101_MISO    6
+    #define PIN_CC1101_GDO0    8
+    #define PIN_CC1101_GDO2    3
+
+    // On-board MicroSD Card Slot (as per N16R8 schematic)
+    #define PIN_SD_CS          10
+    #define PIN_SD_MOSI        11
+    #define PIN_SD_SCK         12
+    #define PIN_SD_MISO        13
+    #define HAS_ONBOARD_SD     true
 
     #define PIN_FS1000A_DATA   16
     #define PIN_AUDIO_PWM      1       // S3 has no DAC; uses high-speed LEDC PWM for audio
@@ -22,6 +29,13 @@
     #define PIN_CC1101_MISO    19
     #define PIN_CC1101_GDO0    4       // Connected to GDO0 for edge-capture demodulation
     #define PIN_CC1101_GDO2    2
+
+    // External MicroSD Card Slot (Optional)
+    #define PIN_SD_CS          15
+    #define PIN_SD_MOSI        23
+    #define PIN_SD_SCK         18
+    #define PIN_SD_MISO        19
+    #define HAS_ONBOARD_SD     false
 
     #define PIN_FS1000A_DATA   26      // Optional FS1000A 433.92 MHz transmitter pin
     #define PIN_AUDIO_DAC      25      // Built-in hardware DAC1 (Channel 1)

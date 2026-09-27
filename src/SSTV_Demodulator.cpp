@@ -24,7 +24,7 @@ void IRAM_ATTR SSTV_Demodulator::handleEdgeISR() {
 SSTV_Demodulator::SSTV_Demodulator()
     : inputPin(4), outputPin(25), running(false), currentFrequencyHz(0.0f),
       validToneCount(0), toneActive(false), lastToneActivityMillis(0),
-      phase(0.0f), lastDacUpdateMicros(0) {}
+      phase(0.0f), lastDacUpdateMicros(0), sampleCallback(nullptr) {}
 
 void SSTV_Demodulator::begin(uint8_t inPin, uint8_t outPin) {
     inputPin = inPin;
@@ -117,6 +117,7 @@ void SSTV_Demodulator::outputToneSample(float freq) {
 
     // 8-bit DAC output (0 - 255)
     uint8_t dacValue = (uint8_t)(128.0f + 110.0f * sinf(phase));
+#if HAS_HARDWARE_DAC
     dacWrite(outputPin, dacValue);
 #else
     // Hardware PWM tone generation on ESP32-S3
@@ -126,4 +127,8 @@ void SSTV_Demodulator::outputToneSample(float freq) {
     ledcWriteTone(0, (uint32_t)freq);
     #endif
 #endif
+
+    if (sampleCallback) {
+        sampleCallback(dacValue);
+    }
 }

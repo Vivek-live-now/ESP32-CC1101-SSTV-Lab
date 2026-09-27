@@ -4,6 +4,8 @@
 #include "SSTV_Demodulator.h"
 #include "SSTV_Encoder.h"
 #include "Doppler_Tracker.h"
+#include "SD_Recorder.h"
+#include "WebPortal.h"
 
 enum OperatingMode {
     MODE_IDLE,
@@ -19,7 +21,7 @@ void printMenu() {
     Serial.println("       ESP32-CC1101 SSTV Satellite & RF Lab             ");
     Serial.println("========================================================");
 #if defined(BOARD_ESP32_S3)
-    Serial.println(" Target Board  : ESP32-S3 DevKit");
+    Serial.println(" Target Board  : ESP32-S3 DevKit (N16R8)");
     Serial.println(" Audio Output  : High-Speed PWM (GPIO 1)");
 #else
     Serial.println(" Target Board  : ESP32-WROOM-32D");
@@ -27,8 +29,10 @@ void printMenu() {
 #endif
     Serial.printf(" Radio Center  : %.3f MHz\n", Doppler.getCurrentFreqMHz());
     Serial.printf(" Doppler Shift : %+.2f kHz\n", Doppler.getCurrentOffsetKHz());
+    Serial.printf(" SD Card Status: %s\n", Recorder.isAvailable() ? "READY (Auto-Record Enabled)" : "NOT DETECTED");
+    Serial.printf(" Web Portal    : http://esp-sstv.local (AP: ESP-SSTV-Station)\n");
     Serial.println("--------------------------------------------------------");
-    Serial.println(" [1] Start ISS SSTV RX Mode (437.550 MHz -> Audio Out)");
+    Serial.println(" [1] Start ISS SSTV RX Mode & Record WAV (437.550 MHz)");
     Serial.println(" [2] Step Doppler Frequency UP (+2.5 kHz)");
     Serial.println(" [3] Step Doppler Frequency DOWN (-2.5 kHz)");
     Serial.println(" [4] Start 10-Minute Auto-Doppler Satellite Pass");
@@ -36,12 +40,14 @@ void printMenu() {
     Serial.println(" [6] Transmit SSTV Calibration Tones (1200-2300 Hz)");
     Serial.println(" [7] Transmit Robot 36 via FS1000A (433.92 MHz ASK/OOK)");
     Serial.println(" [8] Radio Status & RSSI Diagnostic");
-    Serial.println(" [0] Stop / Set Radio to IDLE");
+    Serial.println(" [0] Stop / Set Radio to IDLE & Finalize WAV");
     Serial.println("--------------------------------------------------------");
-    Serial.println(" [BOOT Button] Click: Start/Stop ISS RX | Hold: Transmit SSTV");
+    Serial.println(" [BOOT Button] Click: Start/Stop RX & Record | Hold: Transmit");
     Serial.println("========================================================");
     Serial.print("Select command > ");
 }
+
+void handleCommand(char cmd);
 
 void setup() {
     Serial.begin(115200);
@@ -63,8 +69,33 @@ void setup() {
                       Radio.getPartNum(), Radio.getVersion());
     }
 
+    // Initialize MicroSD card
+    Serial.println("[INIT] Initializing MicroSD card...");
+    bool sdOk = Recorder.begin(PIN_SD_CS, PIN_SD_SCK, PIN_SD_MOSI, PIN_SD_MISO);
+    if (sdOk) {
+        Serial.printf("[OK] MicroSD Card mounted! Total Capacity: %llu MB\n", Recorder.getTotalCapacityMB());
+    } else {
+        Serial.println("[WARN] No MicroSD card detected. Audio recording disabled.");
+    }
+
+    // Route demodulated audio stream into SD WAV recorder
+    Demodulator.setSampleCallback([](uint8_t sample) {
+        if (Recorder.isRecordingActive()) {
+            Recorder.writeSample(sample);
+        }
+    });
+
     Doppler.begin(437.550f, 10.0f);
     Encoder.begin(PIN_CC1101_GDO0);
+
+    // Initialize Web Captive Portal & mDNS (http://esp-sstv.local)
+    Serial.println("[INIT] Starting WiFi Captive Portal & mDNS responder...");
+    Portal.begin(handleCommand);
+    Serial.printf("[WIFI] Captive Portal active on AP: 'ESP-SSTV-Station' (IP: %s)\n", Portal.getAPIP().c_str());
+    if (Portal.isConnectedToStation()) {
+        Serial.printf("[WIFI] Connected to Home Network! Station IP: %s\n", Portal.getStationIP().c_str());
+    }
+    Serial.println("[mDNS] Dashboard available at: http://esp-sstv.local/");
 
     printMenu();
 }
@@ -83,7 +114,14 @@ void handleCommand(char cmd) {
             Demodulator.begin(PIN_CC1101_GDO0, PIN_AUDIO_PWM);
             Serial.println("     Audio stream active on PWM (GPIO 1)");
 #endif
-            Serial.println("     Connect phone running Robot36 to audio output.");
+            // Start recording to SD card if card is available
+            if (Recorder.isAvailable()) {
+                if (Recorder.startRecording()) {
+                    Serial.printf("     [SD-REC] Recording pass audio to: %s\n", Recorder.getCurrentFilename().c_str());
+                }
+            }
+
+            Serial.println("     Connect phone running Robot36 or download WAV from Web Portal.");
             currentMode = MODE_RX_DISCRIMINATOR;
             break;
         }
@@ -112,6 +150,7 @@ void handleCommand(char cmd) {
         case '5': {
             Serial.println("\n[TX] Configuring CC1101 for Asynchronous TX @ 433.920 MHz (Low Power)...");
             Demodulator.stop();
+            if (Recorder.isRecordingActive()) Recorder.stopRecording();
             Radio.setTxAsyncMode(433.920f, 5.0f, 0); // -10 dBm safe lab power
 
             Encoder.setModulationPin(PIN_CC1101_GDO0);
@@ -129,6 +168,7 @@ void handleCommand(char cmd) {
         case '6': {
             Serial.println("\n[TEST] Transmitting SSTV calibration tones (1200 / 1500 / 1900 / 2300 Hz)...");
             Demodulator.stop();
+            if (Recorder.isRecordingActive()) Recorder.stopRecording();
             Radio.setTxAsyncMode(433.920f, 5.0f, 0);
             Encoder.setModulationPin(PIN_CC1101_GDO0);
             Encoder.sendToneTest();
@@ -141,6 +181,7 @@ void handleCommand(char cmd) {
         case '7': {
             Serial.printf("\n[TX-FS1000A] Transmitting Robot 36 via FS1000A on GPIO %d (433.92 MHz ASK/OOK)...\n", PIN_FS1000A_DATA);
             Demodulator.stop();
+            if (Recorder.isRecordingActive()) Recorder.stopRecording();
             Radio.setIdle();
 
             Encoder.setModulationPin(PIN_FS1000A_DATA);
@@ -160,14 +201,26 @@ void handleCommand(char cmd) {
             Serial.printf("  MARCSTATE : 0x%02X\n", Radio.getMarcState());
             Serial.printf("  RSSI      : %d dBm\n", Radio.getRSSI());
             Serial.printf("  Frequency : %.3f MHz\n", Radio.getFrequency());
+            Serial.printf("  SD Card   : %s (Total: %llu MB, Used: %llu MB)\n", 
+                          Recorder.isAvailable() ? "YES" : "NO",
+                          Recorder.getTotalCapacityMB(), Recorder.getUsedSpaceMB());
+            Serial.printf("  WiFi Mode : %s | Portal: http://esp-sstv.local\n",
+                          Portal.isConnectedToStation() ? "Connected (STA+AP)" : "Captive Portal (AP)");
             break;
         }
 
         case '0': {
-            Serial.println("\n[STOP] Halting Demodulator & Setting Radio to IDLE.");
+            Serial.println("\n[STOP] Halting Demodulator & Finalizing Recording.");
             Demodulator.stop();
             Radio.setIdle();
             Doppler.stopPass();
+
+            if (Recorder.isRecordingActive()) {
+                Recorder.stopRecording();
+                Serial.printf("       Saved WAV file: %s (%u bytes)\n", 
+                              Recorder.getCurrentFilename().c_str(), Recorder.getBytesWritten());
+            }
+
             currentMode = MODE_IDLE;
             printMenu();
             break;
@@ -195,13 +248,13 @@ void checkBootButton() {
         uint32_t duration = millis() - pressStartTime;
 
         if (duration >= 50 && duration < 1500) {
-            // Short click: Toggle RX Mode
+            // Short click: 1-Click Satellite Pass Start/Stop!
             if (currentMode == MODE_IDLE) {
-                Serial.println("\n[BOOT BUTTON] Click -> Starting ISS SSTV RX Mode & Auto Doppler Pass!");
+                Serial.println("\n[BOOT BUTTON] 1-Click -> Starting ISS SSTV RX Mode, Auto Doppler & SD Recording!");
                 handleCommand('1');
                 handleCommand('4');
             } else {
-                Serial.println("\n[BOOT BUTTON] Click -> Halting RX Mode (Return to IDLE)");
+                Serial.println("\n[BOOT BUTTON] 1-Click -> Halting RX Mode & Finalizing Recording");
                 handleCommand('0');
             }
         } else if (duration >= 1500) {
@@ -213,6 +266,12 @@ void checkBootButton() {
 }
 
 void loop() {
+    // Process Captive Portal & Web Server
+    Portal.update();
+
+    // Process SD WAV buffer flushing
+    Recorder.update();
+
     // Check hardware BOOT button
     checkBootButton();
 
@@ -236,9 +295,10 @@ void loop() {
             float toneHz = Demodulator.getInstantaneousFrequency();
             bool active = Demodulator.isReceivingTone();
 
-            Serial.printf("[RX-STATUS] Freq: %.3f MHz (%+.1f kHz) | RSSI: %3d dBm | Tone: %4.0f Hz %s\n",
+            Serial.printf("[RX-STATUS] Freq: %.3f MHz (%+.1f kHz) | RSSI: %3d dBm | Tone: %4.0f Hz %s | Rec: %u KB\n",
                           Doppler.getCurrentFreqMHz(), Doppler.getCurrentOffsetKHz(),
-                          rssi, toneHz, active ? "[TONE DETECTED]" : "[STATIC]");
+                          rssi, toneHz, active ? "[TONE DETECTED]" : "[STATIC]",
+                          Recorder.isRecordingActive() ? Recorder.getBytesWritten() / 1024 : 0);
         }
     }
 }

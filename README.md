@@ -35,18 +35,19 @@ Designed for experimenting with amateur radio satellite passes—specifically **
 | **(DAC Output)** | **GPIO 25** | Audio Out $\rightarrow$ $10\text{ k}\Omega$ resistor $\rightarrow$ Phone Mic / Earphone |
 | **FS1000A DATA**  | **GPIO 26** | Optional 433.92 MHz ASK transmitter |
 
-### 2. ESP32-S3 DevKit (Transmitter / DSP Engine)
+### 2. ESP32-S3 DevKit (N16R8 with On-board MicroSD Slot)
 
-| CC1101 / Module Pin | ESP32-S3 Pin | Notes |
+| Module / Function | ESP32-S3 Pin | Notes |
 | :--- | :--- | :--- |
-| **VCC** | **3.3V** | Power (3.3V Only) |
-| **GND** | **GND** | Ground |
-| **CSN** | **GPIO 10** | SPI Chip Select |
-| **SCK** | **GPIO 12** | SPI Clock |
-| **MOSI** | **GPIO 11** | SPI Data In |
-| **MISO** | **GPIO 13** | SPI Data Out |
-| **GDO0** | **GPIO 14** | Asynchronous Modulation Output |
-| **Audio Output** | **GPIO 1** | High-speed LEDC PWM audio (RC filter recommended) |
+| **CC1101 VCC** | **3.3V** | Power (3.3V Only) |
+| **CC1101 GND** | **GND** | Ground |
+| **CC1101 CSN** | **GPIO 7** | SPI Chip Select |
+| **CC1101 SCK** | **GPIO 4** | SPI Clock |
+| **CC1101 MOSI** | **GPIO 5** | SPI Data In |
+| **CC1101 MISO** | **GPIO 6** | SPI Data Out |
+| **CC1101 GDO0** | **GPIO 8** | Raw Slicer Input (ISR) / TX Mod |
+| **On-board MicroSD** | **GPIO 10, 11, 12, 13** | Pre-wired on N16R8 board (CS, MOSI, CLK, MISO) |
+| **Audio Output (PWM)** | **GPIO 1** | High-speed LEDC PWM audio (RC filter recommended) |
 | **FS1000A DATA** | **GPIO 16** | Optional 433.92 MHz ASK transmitter |
 
 #### ESP32-S3 Audio Output Circuit (RC Low-Pass Filter)
@@ -131,10 +132,29 @@ Connect to the ESP32 via Serial at **115200 baud**:
 You do **not** need a computer or serial monitor in the field! The onboard **BOOT button** (`GPIO 0`) works as a physical controller:
 
 * **Short Click (< 1.5 seconds):** 
-  * If IDLE: Instantly starts **ISS SSTV RX Mode** AND triggers the **10-minute automated Doppler tracking curve**!
-  * If RX is running: Stops the receiver and returns to low-power IDLE.
+  * If IDLE: Instantly starts **ISS SSTV RX Mode**, triggers the **10-minute automated Doppler curve**, AND begins **recording the audio stream to `/sstv_pass_XXX.wav` on the MicroSD card**!
+  * If RX is running: Stops the receiver, finalizes the WAV file, and returns to low-power IDLE.
 * **Long Hold (> 1.5 seconds):** 
   * Instantly transmits the **Robot 36 Test Pattern** over the air so you can test decoding with your phone right away.
+
+---
+
+## WiFi Captive Portal & Web Dashboard (http://esp-sstv.local)
+
+The ESP32 broadcasts its own wireless ground station network:
+
+1. **Connect to WiFi:** Connect your phone or laptop to the open WiFi network:
+   * **SSID:** `ESP-SSTV-Station`
+2. **Auto Captive Portal:** The web dashboard will automatically open on your screen! (Or navigate your browser to `http://esp-sstv.local` or `http://192.168.4.1`).
+3. **Features in the Web Portal:**
+   * **1-Click Pass Recording:** Big button to start/stop the satellite pass with live recording telemetry.
+   * **Doppler Stepping:** Real-time buttons to step frequency $\pm 2.5\text{ kHz}$ or trigger the 10-minute automated satellite curve.
+   * **SD Card WAV File Manager:**
+     * Browse all recorded passes.
+     * Play the audio directly in your mobile browser.
+     * **1-Click Download:** Transfer `.wav` files directly from the ESP32 SD card onto your phone over WiFi.
+   * **WiFi Network Scanner:** Connect the ESP32 to your home 2.4GHz WiFi network; credentials are saved to non-volatile memory (NVS) for automatic reconnection.
+   * **Transmitter Triggers:** Transmit Robot 36 color frames or calibration tones on demand.
 
 ---
 
